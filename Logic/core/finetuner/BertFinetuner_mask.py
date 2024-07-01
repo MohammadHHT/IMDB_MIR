@@ -1,3 +1,9 @@
+from collections import Counter
+
+import numpy as np
+import pandas as pd
+import torch
+from sklearn.model_selection import train_test_split
 class BERTFinetuner:
     """
     A class for fine-tuning the BERT model on a movie genre classification task.
@@ -12,20 +18,34 @@ class BERTFinetuner:
             top_n_genres (int): The number of top genres to consider.
         """
         # TODO: Implement initialization logic
+        self.file_path = file_path
+        self.top_n_genres = top_n_genres
 
     def load_dataset(self):
         """
         Load the dataset from the JSON file.
         """
         # TODO: Implement dataset loading logic
+        self.data = pd.read_json(self.file_path)
 
     def preprocess_genre_distribution(self):
         """
         Preprocess the dataset by filtering for the top n genres
         """
         # TODO: Implement genre filtering and visualization logic
+        counter = np.sum([Counter(genre) for genre in self.data["genres"]])
+        self.top_genres = sorted(counter.items(), key=lambda x:x[1], reverse=True)[:5]
+        for i in range(len(self.data)-1, -1, -1):
+            commons = [genre[0] for genre in self.top_genres if genre[0] in self.data.loc[i, "genres"]]
+            if commons:
+                self.data.loc[i, "top_genre"] = str(commons)
+            else:
+                self.data.drop(i, inplace=True)
+            
 
-    def split_dataset(self, test_size=0.3, val_size=0.5):
+                
+
+    def split_dataset(self, test_size=0.1, val_size=0.1):
         """
         Split the dataset into train, validation, and test sets.
 
@@ -34,6 +54,9 @@ class BERTFinetuner:
             val_size (float): The proportion of the dataset to include in the validation split.
         """
         # TODO: Implement dataset splitting logic
+        sum_size = test_size+val_size
+        self.train, test = train_test_split(self.dataset, test_size=sum_size, random_state=42)
+        self.test, self.val = train_test_split(test, test_size=val_size/sum_size, random_state=42)
 
     def create_dataset(self, encodings, labels):
         """
@@ -47,6 +70,7 @@ class BERTFinetuner:
             IMDbDataset: A PyTorch dataset object.
         """
         # TODO: Implement dataset creation logic
+        self.dataset = IMDbDataset(encodings, labels)
 
     def fine_tune_bert(self, epochs=5, batch_size=16, warmup_steps=500, weight_decay=0.01):
         """
@@ -59,6 +83,7 @@ class BERTFinetuner:
             weight_decay (float): The strength of weight decay regularization.
         """
         # TODO: Implement BERT fine-tuning logic
+
 
     def compute_metrics(self, pred):
         """
@@ -101,6 +126,8 @@ class IMDbDataset(torch.utils.data.Dataset):
             labels (list): The corresponding labels.
         """
         # TODO: Implement initialization logic
+        self.encodings = encodings
+        self.labels = labels
 
     def __getitem__(self, idx):
         """
@@ -113,6 +140,7 @@ class IMDbDataset(torch.utils.data.Dataset):
             dict: A dictionary containing the input encodings and labels.
         """
         # TODO: Implement item retrieval logic
+        return self.encodings[idx], self.labels[idx]
 
     def __len__(self):
         """
@@ -122,3 +150,4 @@ class IMDbDataset(torch.utils.data.Dataset):
             int: The number of items in the dataset.
         """
         # TODO: Implement length computation logic
+        return len(self.labels)
