@@ -1,7 +1,9 @@
-import numpy as np
+import hashlib
 import itertools
 import random
+from collections import defaultdict
 
+import numpy as np
 
 class MinHashLSH:
     def __init__(self, documents, num_hashes):
@@ -34,7 +36,7 @@ class MinHashLSH:
         set
             A set of shingles.
         """
-        shingles = None
+        shingles = {document[i:i+k] for i in range(len(document) - k + 1)}
         return shingles
 
     def build_characteristic_matrix(self):
@@ -46,8 +48,13 @@ class MinHashLSH:
         numpy.ndarray
             The binary characteristic matrix.
         """
-        # TODO
-        return
+        #* DONE
+        shingles = np.array([self.shingle_document(doc) for doc in self.documents])
+        shingles_sum = np.unique(shingles.flatten())
+        matrix = np.zeros(shape=(shingles_sum.shape[0], len(self.documents)))
+        for i, shingle in enumerate(shingles_sum):
+            matrix[i,:] = np.isin(shingle, shingles)
+        return matrix
 
     def min_hash_signature(self):
         """
@@ -58,8 +65,17 @@ class MinHashLSH:
         numpy.ndarray
             The Min-Hash signatures matrix.
         """
-        # TODO
-        return
+        #* DONE
+
+        c_matrix = self.build_characteristic_matrix()
+        sig_matrix = np.full((self.num_hashes, len(self.documents)), np.inf)
+        for row in range(sig_matrix.shape[0]):
+            perm = np.random.permutation(c_matrix.shape[0])
+            for col in range(sig_matrix.shape[1]):
+                ones = np.where(c_matrix[:,col])
+                sig_matrix[row, col] = np.min(np.intersect1d(perm, ones))
+
+        return sig_matrix
 
     def lsh_buckets(self, signature, bands=10, rows_per_band=10):
         """
@@ -79,8 +95,20 @@ class MinHashLSH:
         dict
             A dictionary mapping bucket IDs to lists of document indices.
         """
-        # TODO
-        return
+        #* DONE
+        if bands * rows_per_band != self.num_hashes:
+            raise ValueError("number of hashes must be equal to number of bands times rows_per_band")
+        
+        buckets = defaultdict(list)
+
+        for doc in range(signature.shape[1]):
+            for band in range(bands):
+                i = band * rows_per_band
+                band_signature = signature[i:i + rows_per_band, doc]
+                bucket_id = hashlib.md5(','.join(band_signature).encode('utf8')).hexdigest()
+                buckets[bucket_id].append(doc)
+
+        return buckets       
 
     def perform_lsh(self):
         """
@@ -91,8 +119,11 @@ class MinHashLSH:
         dict
             A dictionary mapping bucket IDs to lists of document indices.
         """
-        # TODO
-        return
+        #* DONE
+        signature = self.min_hash_signature()
+        bands = 10
+        rows_per_band = self.num_hashes // bands
+        return self.lsh_buckets(signature, bands, rows_per_band)
 
     def jaccard_score(self, first_set, second_set):
         """
@@ -110,8 +141,11 @@ class MinHashLSH:
         float
             Jaccard score.
         """
-        # TODO
-        pass
+        #* DONE
+        intersection = len(first_set.intersection(second_set))
+        union = len(first_set.union(second_set))
+
+        return intersection / union if union else 0.0
 
     def jaccard_similarity_test(self, buckets, all_documents):
         """
