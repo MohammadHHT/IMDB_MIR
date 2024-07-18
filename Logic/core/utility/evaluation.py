@@ -1,6 +1,8 @@
 
 from typing import List
 
+import numpy as np
+
 class Evaluation:
 
     def __init__(self, name: str):
@@ -22,11 +24,15 @@ class Evaluation:
         float
             The precision of the predicted results
         """
+        #* DONE: Calculate precision here
         precision = 0.0
+        for pred, true in zip(predicted, actual):
+            if len(pred) > 0:
+                precision += len(set(true).intersection(set(pred))) / len(pred)
+        precision /= len(predicted)
 
-        # TODO: Calculate precision here
-        
         return precision
+        
     
     def calculate_recall(self, actual: List[List[str]], predicted: List[List[str]]) -> float:
         """
@@ -44,9 +50,12 @@ class Evaluation:
         float
             The recall of the predicted results
         """
+        #* DONE: Calculate recall here
         recall = 0.0
-
-        # TODO: Calculate recall here
+        for pred, true in zip(predicted, actual):
+            if len(true) > 0:
+                recall += len(set(true).intersection(set(pred))) / len(true)
+        recall /= len(predicted)
 
         return recall
     

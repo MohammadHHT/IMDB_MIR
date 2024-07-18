@@ -1,3 +1,6 @@
+from collections import Counter, defaultdict
+
+
 class SpellCorrection:
     def __init__(self, all_documents):
         """
@@ -26,9 +29,9 @@ class SpellCorrection:
         set
             A set of shingles.
         """
-        shingles = set()
         
-        # TODO: Create shingle here
+        #* DONE: Create shingle here
+        shingles = {word[i:i+k] for i in range(len(word) - k + 1)}
 
         return shingles
     
@@ -49,9 +52,11 @@ class SpellCorrection:
             Jaccard score.
         """
 
-        # TODO: Calculate jaccard score here.
+        #* DONE: Calculate jaccard score here.
+        intersection = len(first_set.intersection(second_set))
+        union = len(first_set.union(second_set))
 
-        return
+        return intersection / union if union else 0.0
 
     def shingling_and_counting(self, all_documents):
         """
@@ -69,11 +74,17 @@ class SpellCorrection:
         word_counter : dict
             A dictionary from words to their TFs.
         """
-        all_shingled_words = dict()
-        word_counter = dict()
 
         # TODO: Create shingled words dictionary and word counter dictionary here.
-                
+        all_shingled_words = defaultdict(set)
+        word_counter = Counter()
+
+        for document in all_documents:
+            words = document.split()
+            word_counter += Counter(words)
+            for word in words:
+                all_shingled_words[word].union(self.shingle_word(word))
+
         return all_shingled_words, word_counter
     
     def find_nearest_words(self, word):
@@ -90,9 +101,17 @@ class SpellCorrection:
         list of str
             5 nearest words.
         """
-        top5_candidates = list()
 
         # TODO: Find 5 nearest candidates here.
+        shingled_word = self.shingle_word(word)
+        candidates = []
+
+        for candidate_word, candidate_shingles in self.all_shingled_words.items():
+            if score := self.jaccard_score(shingled_word, candidate_shingles) > 0:
+                candidates.append((candidate_word, score))
+
+        candidates.sort(key=lambda x: x[1])
+        top5_candidates = [t[0] for t in candidates[:-6:-1]]
 
         return top5_candidates
     
@@ -110,8 +129,17 @@ class SpellCorrection:
         str
             Correct form of the query.
         """
-        final_result = ""
-        
+
         # TODO: Do spell correction here.
+
+        final_result = ""
+        words = query.split()
+        corrected_query = []
+
+        for word in words:
+            if nearest_words := self.find_nearest_words(word):
+                word = nearest_words[0]
+            corrected_query.append(word)
+        final_result = " ".join(corrected_query)
 
         return final_result

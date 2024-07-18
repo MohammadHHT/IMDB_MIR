@@ -4,7 +4,7 @@ import json
 
 
 class Tiered_index:
-    def __init__(self, path="index/"):
+    def __init__(self, path="data/index/"):
         """
         Initializes the Tiered_index.
 
@@ -61,7 +61,16 @@ class Tiered_index:
         first_tier = {}
         second_tier = {}
         third_tier = {}
-        #TODO
+
+        for key, counts in current_index.items():
+            sum_counts = sum(counts.values())  # Sum of counts in the postings list
+            if sum_counts > first_tier_threshold:
+                first_tier[key] = counts
+            elif sum_counts > second_tier_threshold:
+                second_tier[key] = counts
+            else:
+                third_tier[key] = counts
+
         return {
             "first_tier": first_tier,
             "second_tier": second_tier,
@@ -72,12 +81,12 @@ class Tiered_index:
         """
         Stores the tiered index to a file.
         """
-        path = path + index_name.value + "_" + Index_types.TIERED.value + "_index.json"
+        path = path + index_name.value + "_" + Index_types.TIERED.value + ".json"
         with open(path, "w") as file:
             json.dump(self.tiered_index[index_name], file, indent=4)
 
 
 if __name__ == "__main__":
     tiered = Tiered_index(
-        path="index/"
+        path="data/index/"
     )

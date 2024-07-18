@@ -2,8 +2,9 @@ import time
 import os
 import json
 import copy
-from .indexes_enum import Indexes
+from collections import defaultdict
 
+from .indexes_enum import Indexes, Index_types
 
 class Index:
     def __init__(self, preprocessed_documents: list):
@@ -31,10 +32,9 @@ class Index:
             The index of the documents based on the document ID.
         """
 
-        current_index = {}
-        #         TODO
-
-        return current_index
+        #* DONE
+        index = {doc['id']:doc for doc in self.preprocessed_documents}
+        return index
 
     def index_stars(self):
         """
@@ -47,8 +47,18 @@ class Index:
             So the index type is: {term: {document_id: tf}}
         """
 
-        #         TODO
-        pass
+        #* DONE
+        index = defaultdict(dict)
+        for doc in self.preprocessed_documents:
+            if stars := doc.get('stars', None):
+                for star in stars:
+                    for term in star.split():
+                        if doc['id'] in index[term]:
+                            index[term][doc['id']] += 1
+                        else:
+                            index[term][doc['id']] = 1
+        return index
+
 
     def index_genres(self):
         """
@@ -61,8 +71,16 @@ class Index:
             So the index type is: {term: {document_id: tf}}
         """
 
-        #         TODO
-        pass
+        #* DONE
+        index = defaultdict(dict)
+        for doc in self.preprocessed_documents:
+            if genres := doc.get('genres', None):
+                for genre in genres:
+                    if doc['id'] in index[genre]:
+                        index[genre][doc['id']] += 1
+                    else:
+                        index[genre][doc['id']] = 1
+        return index
 
     def index_summaries(self):
         """
@@ -75,10 +93,18 @@ class Index:
             So the index type is: {term: {document_id: tf}}
         """
 
-        current_index = {}
-        #         TODO
+        #* DONE
+        index = defaultdict(dict)
+        for doc in self.preprocessed_documents:
+            if summaries := doc.get('summaries', None):
+                for summary in summaries:
+                    for term in summary.split():
+                        if doc['id'] in index[term]:
+                            index[term][doc['id']] += 1
+                        else:
+                            index[term][doc['id']] = 1
+        return index
 
-        return current_index
 
     def get_posting_list(self, word: str, index_type: str):
         """
@@ -98,8 +124,8 @@ class Index:
         """
 
         try:
-            #         TODO
-            pass
+            #* DONE
+            return list(self.index[index_type][word].keys())
         except:
             return []
 
@@ -113,8 +139,21 @@ class Index:
             Document to add to all the indexes
         """
 
-        #         TODO
-        pass
+        #* DONE
+        self.preprocessed_documents.append(document)
+
+        for key, idx in self.index.items():
+            if key == Indexes.DOCUMENTS.value:
+                idx[document['id']] = document
+            else:
+                if document[key]:
+                    for item in document[key]:
+                        for term in item.split():
+                            if document['id'] in idx[term]:
+                                idx[term][document['id']] += 1
+                            else:
+                                idx[term][document['id']] = 1    
+
 
     def remove_document_from_index(self, document_id: str):
         """
@@ -126,8 +165,18 @@ class Index:
             ID of the document to remove from all the indexes
         """
 
-        #         TODO
-        pass
+        #* DONE
+        document = self.index[Indexes.DOCUMENTS.value].pop(document_id, None)
+
+        if document:
+            for key, idx in self.index.items():
+                if key != Indexes.DOCUMENTS.value:
+                    if document[key]:
+                        for item in document[key]:
+                            for term in item.split():
+                                del idx[term][document['id']]
+                                if not idx[term]:
+                                    del idx[term]
 
     def delete_dummy_keys(self, index_before_add, index, key):
         if len(index_before_add[index][key]) == 0:
@@ -230,8 +279,9 @@ class Index:
         if index_name not in self.index:
             raise ValueError('Invalid index name')
 
-        # TODO
-        pass
+        #* DONE
+        with open(os.path.join(path, f"{index_name}.json"), 'w') as f:
+            json.dump(self.index[index_name], f)
 
     def load_index(self, path: str):
         """
@@ -243,8 +293,13 @@ class Index:
             Path to load the file
         """
 
-        #         TODO
-        pass
+        #* DONE
+        for index_name in self.index.keys():
+            try:
+                with open(os.path.join(path, f"{index_name}.json"), 'r') as f:
+                    self.index[index_name] = json.load(f)
+            except:
+                print(f"Not found {index_name}.json in given path")
 
     def check_if_index_loaded_correctly(self, index_type: str, loaded_index: dict):
         """
@@ -286,11 +341,13 @@ class Index:
         # brute force to check check_word in the summaries
         start = time.time()
         docs = []
+        doc_key = index_type if index_type != 'documents' else 'id'
+        
         for document in self.preprocessed_documents:
-            if index_type not in document or document[index_type] is None:
+            if doc_key not in document or document[doc_key] is None:
                 continue
 
-            for field in document[index_type]:
+            for field in document[doc_key]:
                 if check_word in field:
                     docs.append(document['id'])
                     break
@@ -327,3 +384,30 @@ class Index:
             return False
 
 # TODO: Run the class with needed parameters, then run check methods and finally report the results of check methods
+
+if __name__ == '__main__':
+    with open('data/IMDB_preped.json', 'r') as f:
+        docs = json.load(f)
+
+    index = Index(docs)
+    path = "data/index/"
+    for index_type in Indexes:
+        index.store_index(path, index_type.value)
+
+    index.check_add_remove_is_correct()
+    index.load_index(path)
+
+    for index_type in index.index:
+        loaded_index = index.index[index_type]
+        print(f"{index_type} index loaded correctly? ", index.check_if_index_loaded_correctly(index_type, loaded_index))
+
+    print("documents")
+    index.check_if_indexing_is_good("documents", 'tt4430212')
+    print("stars")
+    index.check_if_indexing_is_good("stars", 'Dean')
+    print("genres")
+    index.check_if_indexing_is_good("genres", 'Musical')
+    print("summaries")
+    index.check_if_indexing_is_good("summaries", 'Action')
+  
+    

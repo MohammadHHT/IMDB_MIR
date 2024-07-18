@@ -1,16 +1,17 @@
 import json
 import numpy as np
+from collections import defaultdict, Counter
 from .utility import Preprocessor, Scorer
 from .indexer import Indexes, Index_types, Index_reader
 
 
 class SearchEngine:
-    def __init__(self):
+    def __init__(self, path = "data/index/"):
         """
         Initializes the search engine.
 
         """
-        path = "/index"
+        
         self.document_indexes = {
             Indexes.STARS: Index_reader(path, Indexes.STARS),
             Indexes.GENRES: Index_reader(path, Indexes.GENRES),
@@ -78,8 +79,8 @@ class SearchEngine:
         list
             A list of tuples containing the document IDs and their scores sorted by their scores.
         """
-        preprocessor = Preprocessor([query])
-        query = preprocessor.preprocess()[0]
+        preprocessor = Preprocessor([{'query':query}])
+        query = preprocessor.preprocess()[0]['query']
 
         scores = {}
         if method == "unigram":
@@ -116,8 +117,12 @@ class SearchEngine:
         final_scores : dict
             The final scores of the documents.
         """
-        # TODO
-        pass
+        #* DONE
+        for doc_id in set.union(*[set(scores[field].keys()) for field in scores]):
+            score = 0
+            for field, weight in weights.items():
+                score += weight * scores[field].get(doc_id, 0)
+            final_scores[doc_id] = score
 
     def find_scores_with_unsafe_ranking(
         self, query, method, weights, max_results, scores
@@ -139,9 +144,28 @@ class SearchEngine:
             The scores of the documents.
         """
         for field in weights:
-            for tier in ["first_tier", "second_tier", "third_tier"]:
-                # TODO
-                pass
+            tiered = self.tiered_index[field]
+            scorer = Scorer(tiered, len(tiered))
+            if method == "OkapiBM25":
+                lenghts = self.document_lengths_index[field].index
+                avg_doc_len = sum(lenghts.values()) / len(lenghts)
+                for tier in [
+                            "first_tier", 
+                            "second_tier", 
+                            "third_tier"
+                            ]:
+                    index = tiered[tier]
+                    if len(scores[field]) < max_results:
+                        scores[field].update(scorer.compute_socres_with_okapi_bm25(query, avg_doc_len, lenghts, index))
+                    else:
+                        break
+            else:
+                for tier in ["first_tier", "second_tier", "third_tier"]:
+                    index = tiered[tier]
+                    if len(scores[field]) < max_results:
+                        scores[field].update(scorer.compute_scores_with_vector_space_model(query, method, index))
+                    else:
+                        break
 
     def find_scores_with_safe_ranking(self, query, method, weights, scores):
         """
@@ -159,9 +183,16 @@ class SearchEngine:
             The scores of the documents.
         """
 
+        #* DONE
         for field in weights:
-            # TODO
-            pass
+            index = self.document_indexes[field].index
+            scorer = Scorer(index, len(index))
+            if method == "OkapiBM25":
+                doc_lengths = self.document_lengths_index[field].index
+                avg_doc_len = sum(doc_lengths.values()) / len(doc_lengths)
+                scores[field] = scorer.compute_socres_with_okapi_bm25(query, avg_doc_len, doc_lengths)
+            else:
+                scores[field] = scorer.compute_scores_with_vector_space_model(query, method)
 
     def find_scores_with_unigram_model(
         self, query, smoothing_method, weights, scores, alpha=0.5, lamda=0.5
@@ -185,8 +216,19 @@ class SearchEngine:
             The parameter used in some smoothing methods to balance between the document
             probability and the collection probability. Defaults to 0.5.
         """
-        # TODO
-        pass
+        #* DONE
+        for field in weights:
+            if weights[field] == 0:
+                continue
+            if field not in scores:
+                scores[field] = {}
+            scorer = Scorer(self.document_indexes[field].index, len(self.document_indexes[field].index))
+            field_scores = scorer.compute_scores_with_unigram_model(query, smoothing_method, document_lengths=self.document_lengths_index[field].index, alpha=alpha, lamda=lamda)
+            for doc_id, score in field_scores.items():
+                if doc_id not in scores[field]:
+                    scores[field] = {}
+                scores[field][doc_id] = score
+        return scores
 
     def merge_scores(self, scores1, scores2):
         """
@@ -205,7 +247,8 @@ class SearchEngine:
             The merged dictionary of scores.
         """
 
-        # TODO
+        #* DONE
+        return dict(Counter(scores1) + Counter(scores2))
 
 
 if __name__ == "__main__":

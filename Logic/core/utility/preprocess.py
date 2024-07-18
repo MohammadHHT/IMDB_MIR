@@ -1,3 +1,18 @@
+import re
+import json
+import string
+from collections import defaultdict
+
+import nltk
+from nltk.tokenize import word_tokenize
+try:
+    from nltk.corpus import stopwords
+    from nltk.stem import WordNetLemmatizer
+except:
+    nltk.download('stopwords')
+    nltk.download('wordnet')
+    from nltk.corpus import stopwords
+    from nltk.stem import WordNetLemmatizer
 
 
 class Preprocessor:
@@ -13,7 +28,10 @@ class Preprocessor:
         """
         # TODO
         self.documents = documents
-        self.stopwords = []
+        self.stopwords = set(stopwords.words('english'))
+        self.lemmatizer = WordNetLemmatizer()
+
+            
 
     def preprocess(self):
         """
@@ -24,8 +42,32 @@ class Preprocessor:
         List[str]
             The preprocessed documents.
         """
-         # TODO
-        return
+        # TODO
+        preped = list()
+        for doc in self.documents:
+            temp_doc = defaultdict(list)
+            for key in doc.keys():
+                if isinstance(doc[key], list):
+                    if key == 'reviews':
+                        for text, score in doc[key]:
+                            text = self.remove_links(text)
+                            text = self.remove_punctuations(text)
+                            text = self.normalize(text)
+                            temp_doc[key].append((text, score))
+                    else:
+                        for text in doc[key]:
+                            text = self.remove_links(text)
+                            text = self.remove_punctuations(text)
+                            text = self.normalize(text)
+                            temp_doc[key].append(text)
+                    
+                else:
+                    text = self.remove_links(str(doc[key]))
+                    text = self.remove_punctuations(text)
+                    text = self.normalize(text)
+                    temp_doc[key] = text
+            preped.append(temp_doc)
+        return preped
 
     def normalize(self, text: str):
         """
@@ -41,8 +83,11 @@ class Preprocessor:
         str
             The normalized text.
         """
-        # TODO
-        return
+        #* DONE
+        text = text.lower()
+        words = self.tokenize(text)
+        leman_words = [self.lemmatizer.lemmatize(word) for word in words]
+        return ' '.join(leman_words)
 
     def remove_links(self, text: str):
         """
@@ -59,8 +104,10 @@ class Preprocessor:
             The text with links removed.
         """
         patterns = [r'\S*http\S*', r'\S*www\S*', r'\S+\.ir\S*', r'\S+\.com\S*', r'\S+\.org\S*', r'\S*@\S*']
-        # TODO
-        return
+        #* DONE
+        for pattern in patterns:
+            text = re.sub(pattern, '', text)
+        return text
 
     def remove_punctuations(self, text: str):
         """
@@ -76,8 +123,8 @@ class Preprocessor:
         str
             The text with punctuations removed.
         """
-        # TODO
-        return
+        #* DONE
+        return text.translate(str.maketrans('', '', string.punctuation))
 
     def tokenize(self, text: str):
         """
@@ -93,8 +140,8 @@ class Preprocessor:
         list
             The list of words.
         """
-        # TODO
-        return
+        #* DONE
+        return [word for word in word_tokenize(text) if word not in self.stopwords]
 
     def remove_stopwords(self, text: str):
         """
@@ -111,5 +158,5 @@ class Preprocessor:
             The list of words with stopwords removed.
         """
         # TODO
+        #! Nope
         return
-
